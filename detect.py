@@ -22,6 +22,8 @@ from utils.general import (LOGGER, Profile, check_file, check_img_size, check_im
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, smart_inference_mode
 
+# Inicjalizacja easyocr
+reader = easyocr.Reader(['pl'])
 
 def sharpen_image(image):
     kernel = np.array([[0, -1, 0], 
@@ -106,9 +108,8 @@ def read_license_plate(image_path, thresholding, enhance, debug):
         cv2.waitKey(5000)
         cv2.destroyAllWindows()
 
-    # Inicjalizacja easyocr
-    reader = easyocr.Reader(['pl'])
-    results = reader.readtext(gray)
+    #ocr na pliku, dodany allowlist w celu ograniczenia ilości znaków
+    results = reader.readtext(gray, allowlist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
 
     # Łączenie wyników w jeden string
     text = " ".join([result[1] for result in results])
