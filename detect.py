@@ -8,6 +8,7 @@ import torch
 import cv2
 import easyocr
 
+
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLO root directory
 if str(ROOT) not in sys.path:
@@ -24,6 +25,64 @@ from utils.torch_utils import select_device, smart_inference_mode
 
 # Inicjalizacja easyocr
 reader = easyocr.Reader(['pl'])
+confidence_threshold = 0.7 #próg odrzucania wyników
+
+def deskew_image(image):
+    '''
+    prostowanie perspektywy
+    '''
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # wykrywanie krawędzi
+    edges = cv2.Canny(gray, 0, 200)
+
+    # szukanie konturu
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+
+    for contour in contours:
+        approx = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
+        if len(approx) == 4:
+
+            plate_contour = approx
+            break
+
+    # narożniki
+    pts = plate_contour.reshape(4, 2)
+    rect = np.zeros((4, 2), dtype="float32")
+
+    # sortowanie: górny lewy, górny prawy, dolny prawy, dolny lewy
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+
+    (tl, tr, br, bl) = rect
+
+    # Oblicz szerokość i wysokość
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    maxWidth = max(int(widthA), int(widthB))
+
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    maxHeight = max(int(heightA), int(heightB))
+
+    # Nowe wymiary obrazu
+    dst = np.array([
+        [0, 0],
+        [maxWidth - 1, 0],
+        [maxWidth - 1, maxHeight - 1],
+        [0, maxHeight - 1]], dtype="float32")
+
+    # transformacja perspektywiczna
+    M = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+
+    return(warped)
 
 def sharpen_image(image):
     kernel = np.array([[0, -1, 0], 
@@ -65,6 +124,7 @@ def read_license_plate(image_path, thresholding, enhance, debug):
     if image is None:
         raise ValueError(f"Obraz nie został wczytany poprawnie: {image_path}")
 
+
     if debug:
         print('Orginalny obraz')
         cv2.imshow('Original Image', image)
@@ -72,7 +132,7 @@ def read_license_plate(image_path, thresholding, enhance, debug):
         cv2.destroyAllWindows()
         
 
-    print('Konwersja na skale szarości')
+    if debug: print('Konwersja na skale szarości')
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     if debug:
@@ -82,42 +142,69 @@ def read_license_plate(image_path, thresholding, enhance, debug):
 
     # Ulepszanie obrazu
     if enhance == 'sharpen':
-        print('Wyostrzanie krawędzi')
+        if debug: print('Wyostrzanie krawędzi')
         gray = sharpen_image(gray)
     elif enhance == 'smooth':
-        print('Wygładzanie krawędzi')
+        if debug: print('Wygładzanie krawędzi')
         gray = smooth_edges(gray)
         
 
     if debug:
         print ('ulepszony obraz')
         cv2.imshow('Enhanced Image', gray)
-        cv2.waitKey(5000)
+        cv2.waitKey(500)
         cv2.destroyAllWindows()
 
     # Wybór metody progowania
     if thresholding == 'adaptive':
         gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        print('adaptive')
+        if debug: print('adaptive')
     elif thresholding == 'otsu':
         _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        print('otsu')
+        if debug: print('otsu')
 
     if debug:
         cv2.imshow('Thresholded Image', gray)
-        cv2.waitKey(5000)
+        cv2.waitKey(500)
         cv2.destroyAllWindows()
 
     #ocr na pliku, dodany allowlist w celu ograniczenia ilości znaków
-    results = reader.readtext(gray, allowlist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+    results = reader.readtext(
+        gray,
+        allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        text_threshold=0.9,
+        adjust_contrast=0.7, #Współczynnik regulacji kontrastu. Wartość 0 oznacza brak regulacji, a 1 pełną regulację.
+        contrast_ths=0.5, #Próg kontrastu używany do przetwarzania obrazu. Pomaga poprawić dokładność rozpoznawania tekstu na obrazach o niskim kontraście.
+        link_threshold=0.2,
+        paragraph=False
+)
 
+    #TODO: odrzucanie jeśli ilość znaków jest zbyt mała
+    filtered_text = []
+    for result in results:
+        text, confidence = result[1], result[2]
+        if confidence >= confidence_threshold:
+            filtered_text.append(text)
+            print(f"Odczytane nymery tablic:  {text}")
+        elif debug:
+            print(f"Odrzucono: {text} z pewnością {confidence:.2f}")
+
+    text = " ".join(filtered_text)
+
+
+    '''confidence = results[2]
     # Łączenie wyników w jeden string
     text = " ".join([result[1] for result in results])
+    if confidence>=0.8:
+
+        print(f"Odczytane nymery tablic:  {text}")
+    else:
+        print(f"Niska pewność! Odczytane numery tablic:  {text}")'''
 
     if debug:
         print(f"OCR Results: {results}")
 
-    print (f"Odczytane nymery tablic:  {text}")
+
 
 def run(
         weights=ROOT / 'yolov9-s4/weights/best.pt',  # model path or triton URL
