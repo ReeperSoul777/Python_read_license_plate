@@ -14,6 +14,7 @@ class DetectApp:
         self.save_incorrect_csv = tk.BooleanVar()
         self.save_cropped_jpg = tk.BooleanVar()
         self.save_frames_jpg = tk.BooleanVar()
+        self.debug = tk.BooleanVar()
 
         self.create_widgets()
 
@@ -36,8 +37,12 @@ class DetectApp:
                                                                                                                  columnspan=3,
                                                                                                                  padx=10,
                                                                                                                  pady=10)
+        tk.Checkbutton(self.root, text="DEBUG mode", variable=self.debug).grid(row=5,
+                                                                                                                 columnspan=3,
+                                                                                                                 padx=10,
+                                                                                                                 pady=10)
 
-        tk.Button(self.root, text="Run Detect", command=self.run_detect).grid(row=5, columnspan=3, padx=10, pady=20)
+        tk.Button(self.root, text="Run Detect", command=self.run_detect).grid(row=6, columnspan=3, padx=10, pady=20)
 
     def browse_file(self):
         file_path = filedialog.askopenfilename(
@@ -57,6 +62,7 @@ class DetectApp:
             'save_incorrect_csv': self.save_incorrect_csv.get(),
             'save_cropped_jpg': self.save_cropped_jpg.get(),
             'save_frames_jpg': self.save_frames_jpg.get(),
+            'debug' : self.debug.get(),
         }
 
         try:
@@ -67,6 +73,7 @@ class DetectApp:
                 nosave=not self.save_frames_jpg.get(),
                 save_results=self.save_correct_csv.get(),
                 save_rejections=self.save_incorrect_csv.get(),
+                debug=self.debug.get(),
             )
             messagebox.showinfo("Success", "Detection process completed.")
         except Exception as e:
