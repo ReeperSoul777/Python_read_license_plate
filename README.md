@@ -15,17 +15,11 @@ Follow these steps to set up the project:
 ### Clone the Repository
 ```bash
 git clone https://github.com/ReeperSoul777/Python_read_license_plate.git
-cd Python_read_license_plate
 ```
 
-### Clone the YOLOv9 
+### Clone the YOLOv9 and install Dependencies
 ```bash
 git clone https://github.com/WongKinYiu/yolov9.git
-
-```
-
-### Install Dependencies
-```bash
 cd yolov9
 pip install -r requirements.txt
 ```
@@ -44,16 +38,6 @@ Run GUI and specify input
 ## File Structure
 - `yolov9`: YOLOv9 model
 - `yolov9-s4`: pretrained weights
-
-## TODO
-- [x] Annotate images for training
-- [x] Train model using OpenALPR training data
-- [x] Improve OCR accuracy by fine-tuning image preprocessing steps.
-- [x] Add support for multiple video formats and live video streams.
-- [ ] Implement tracking of detected license plates across frames.
-- [x] Add saving results to csv files.
-- [x] GUI.
-- [ ] Add unit tests and improve code coverage.
 
 
 
