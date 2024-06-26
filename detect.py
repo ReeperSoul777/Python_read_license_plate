@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import cv2
 import easyocr
+import csv
 
 
 FILE = Path(__file__).resolve()
@@ -27,6 +28,12 @@ from utils.torch_utils import select_device, smart_inference_mode
 reader = easyocr.Reader(['pl'])
 confidence_threshold = 0.6 #próg odrzucania wyników
 min_length = 6 #minimalna ilość znaków w tablicy rejestracyjnej
+
+RED = "\033[31m"
+YELLOW = "\033[33m"
+GREEN = "\033[32m"
+RESET = "\033[0m"
+
 def deskew_image(image):
     '''
     prostowanie perspektywy
@@ -95,7 +102,7 @@ def smooth_edges(image):
     smoothed = cv2.bilateralFilter(image, 9, 75, 75)
     return smoothed
 
-def read_license_plate(image, thresholding, enhance, debug):
+def read_license_plate(image, thresholding, enhance, debug, frame_number, save_results, save_rejections):
     """
     Odczytuje tablicę rejestracyjną ze zdjęcia.
 
@@ -182,11 +189,23 @@ def read_license_plate(image, thresholding, enhance, debug):
         if confidence >= confidence_threshold:
             if len(text) >= min_length:
                 filtered_text.append(text)
-                print(f"Odczytane numery tablic:  {text}")
-            elif debug:
-                print(f"Odrzucono: {text} z powodu zbyt małej ilości znaków (długość: {len(text)})")
-        elif debug:
-            print(f"Odrzucono: {text} z pewnością {confidence:.2f}")
+                print(f"{GREEN}Odczytane numery tablic:  {text}{RESET}")
+                # Save recognized license plate to CSV
+                if save_results:
+                    save_results_to_csv(frame_number, text)
+
+            else:
+                reason = f"Rejected due to short length (length: {len(text)})"
+                if debug: print(f"{YELLOW}Rejected due to short length (length: {len(text)}){RESET}")
+                # Save rejection to CSV
+                if save_rejections:
+                    save_rejections_to_csv(frame_number, text, reason)
+        else:
+            reason = f"Rejected due to low confidence (confidence: {confidence:.2f})"
+            if debug: print(f"{YELLOW}Rejected due to low confidence (confidence: {confidence:.2f}){RESET}")
+            # Save rejection to CSV
+            if save_rejections:
+                save_rejections_to_csv(frame_number, text, reason)
 
     text = " ".join(filtered_text)
 
@@ -194,6 +213,31 @@ def read_license_plate(image, thresholding, enhance, debug):
     if debug:
         print(f"OCR Results: {results}")
 
+def save_results_to_csv(frame_number, recognized_text):
+    csv_file = "recognized_license_plates.csv"
+    fieldnames = ['Frame Number', 'License Plate']
+    if not os.path.exists(csv_file):
+        with open(csv_file, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+
+    with open(csv_file, mode='a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writerow({'Frame Number': frame_number, 'License Plate': recognized_text})
+
+
+def save_rejections_to_csv(frame_number, rejected_text, reason):
+    csv_file = "rejected_license_plates.csv"
+    fieldnames = ['Frame Number', 'Rejected License Plate', 'Reason']
+    if not os.path.exists(csv_file):
+        with open(csv_file, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+
+
+    with open(csv_file, mode='a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writerow({'Frame Number': frame_number, 'Rejected License Plate': rejected_text, 'Reason': reason})
 
 
 def run(
@@ -323,7 +367,7 @@ def run(
                         # Przetwarzanie wyciętego obrazu tablicy rejestracyjnej
                         #read_license_plate(str(save_dir / 'crops' / names[c] / f'{p.stem}{iplk}.jpg'), thresholding='none', enhance='sharpen', debug=False)
                         crop_img = save_one_box(xyxy, imc, BGR=True, save=False)
-                        read_license_plate(crop_img, thresholding='none', enhance='sharpen', debug=False)
+                        read_license_plate(crop_img, thresholding='none', enhance='sharpen', debug=False, frame_number=frame, save_results=True, save_rejections=True)
 
             # Stream results
             im0 = annotator.result()
