@@ -102,7 +102,7 @@ def smooth_edges(image):
     smoothed = cv2.bilateralFilter(image, 9, 75, 75)
     return smoothed
 
-def read_license_plate(image, thresholding, enhance, debug, frame_number, save_results, save_rejections):
+def read_license_plate(image, thresholding, enhance, debug, save_results, save_rejections, frame_number):
     """
     Odczytuje tablicę rejestracyjną ze zdjęcia.
 
@@ -269,6 +269,11 @@ def run(
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
         vid_stride=1,  # video frame-rate stride
+        thresholding='none',
+        enhance='sharpen',
+        debug=False,
+        save_results=True,
+        save_rejections=True,
 ):
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
@@ -367,7 +372,7 @@ def run(
                         # Przetwarzanie wyciętego obrazu tablicy rejestracyjnej
                         #read_license_plate(str(save_dir / 'crops' / names[c] / f'{p.stem}{iplk}.jpg'), thresholding='none', enhance='sharpen', debug=False)
                         crop_img = save_one_box(xyxy, imc, BGR=True, save=False)
-                        read_license_plate(crop_img, thresholding='none', enhance='sharpen', debug=False, frame_number=frame, save_results=True, save_rejections=True)
+                        read_license_plate(crop_img, thresholding, enhance, debug, save_results, save_rejections, frame_number=frame)
 
             # Stream results
             im0 = annotator.result()

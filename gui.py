@@ -32,7 +32,7 @@ class DetectApp:
                                                                                                           columnspan=3,
                                                                                                           padx=10,
                                                                                                           pady=10)
-        tk.Checkbutton(self.root, text="Save Frames with Detections to JPG", variable=self.save_frames_jpg).grid(row=4,
+        tk.Checkbutton(self.root, text="Save Frames with Detections boxes", variable=self.save_frames_jpg).grid(row=4,
                                                                                                                  columnspan=3,
                                                                                                                  padx=10,
                                                                                                                  pady=10)
@@ -61,7 +61,13 @@ class DetectApp:
 
         try:
             #detect.run(file_path, options)
-            detect.run(file_path)
+            detect.run(
+                source=file_path,
+                save_crop=self.save_cropped_jpg.get(),
+                nosave=not self.save_frames_jpg.get(),
+                save_results=self.save_correct_csv.get(),
+                save_rejections=self.save_incorrect_csv.get(),
+            )
             messagebox.showinfo("Success", "Detection process completed.")
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {e}")
