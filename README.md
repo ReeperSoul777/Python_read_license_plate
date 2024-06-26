@@ -1,7 +1,7 @@
 
 # License Plate Detection and Recognition 
 
-This project aims to detect and recognize vehicle license plates from video streams using YOLOv7 and EasyOCR. The program captures frames from a video stream, detects license plates using a pre-trained YOLOv7 model, and performs Optical Character Recognition (OCR) on the detected plates.
+This project aims to detect and recognize vehicle license plates from video streams using YOLOv9 and EasyOCR. The program captures frames from a video stream, detects license plates using a pre-trained YOLOv7 model, and performs Optical Character Recognition (OCR) on the detected plates.
 
 ## Features
 - Real-time license plate detection from video streams.
