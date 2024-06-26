@@ -25,8 +25,8 @@ from utils.torch_utils import select_device, smart_inference_mode
 
 # Inicjalizacja easyocr
 reader = easyocr.Reader(['pl'])
-confidence_threshold = 0.7 #próg odrzucania wyników
-
+confidence_threshold = 0.6 #próg odrzucania wyników
+min_length = 6 #minimalna ilość znaków w tablicy rejestracyjnej
 def deskew_image(image):
     '''
     prostowanie perspektywy
@@ -95,7 +95,7 @@ def smooth_edges(image):
     smoothed = cv2.bilateralFilter(image, 9, 75, 75)
     return smoothed
 
-def read_license_plate(image_path, thresholding, enhance, debug):
+def read_license_plate(image, thresholding, enhance, debug):
     """
     Odczytuje tablicę rejestracyjną ze zdjęcia.
 
@@ -114,16 +114,13 @@ def read_license_plate(image_path, thresholding, enhance, debug):
     Zwraca:
     - str: Odczytany tekst z tablicy rejestracyjnej.
     """
-    # Sprawdzenie czy plik istnieje
-    if not os.path.isfile(image_path):
-        raise FileNotFoundError(f"Obraz nie został wczytany. Sprawdź ścieżkę: {image_path}")
-
-    # Alternatywna metoda wczytywania obrazu
-    image = cv2.imdecode(np.fromfile(image_path, np.uint8), cv2.IMREAD_COLOR)
-    
-    if image is None:
-        raise ValueError(f"Obraz nie został wczytany poprawnie: {image_path}")
-
+    # Sprawdzenie, czy obraz jest ścieżką, czy już załadowanym obrazem
+    if isinstance(image, str):
+        if not os.path.isfile(image):
+            raise FileNotFoundError(f"Obraz nie został wczytany. Sprawdź ścieżkę: {image}")
+        image = cv2.imdecode(np.fromfile(image, np.uint8), cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError(f"Obraz nie został wczytany poprawnie: {image}")
 
     if debug:
         print('Orginalny obraz')
@@ -173,33 +170,26 @@ def read_license_plate(image_path, thresholding, enhance, debug):
         gray,
         allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
         text_threshold=0.9,
-        adjust_contrast=0.7, #Współczynnik regulacji kontrastu. Wartość 0 oznacza brak regulacji, a 1 pełną regulację.
-        contrast_ths=0.5, #Próg kontrastu używany do przetwarzania obrazu. Pomaga poprawić dokładność rozpoznawania tekstu na obrazach o niskim kontraście.
-        link_threshold=0.2,
+        adjust_contrast=0.7, #współczynnik regulacji kontrastu
+        contrast_ths=0.5, #próg kontrastu używany do przetwarzania obrazu
+        link_threshold=0.15, #próg łączenia wiersza
         paragraph=False
 )
 
-    #TODO: odrzucanie jeśli ilość znaków jest zbyt mała
     filtered_text = []
     for result in results:
         text, confidence = result[1], result[2]
         if confidence >= confidence_threshold:
-            filtered_text.append(text)
-            print(f"Odczytane nymery tablic:  {text}")
+            if len(text) >= min_length:
+                filtered_text.append(text)
+                print(f"Odczytane numery tablic:  {text}")
+            elif debug:
+                print(f"Odrzucono: {text} z powodu zbyt małej ilości znaków (długość: {len(text)})")
         elif debug:
             print(f"Odrzucono: {text} z pewnością {confidence:.2f}")
 
     text = " ".join(filtered_text)
 
-
-    '''confidence = results[2]
-    # Łączenie wyników w jeden string
-    text = " ".join([result[1] for result in results])
-    if confidence>=0.8:
-
-        print(f"Odczytane nymery tablic:  {text}")
-    else:
-        print(f"Niska pewność! Odczytane numery tablic:  {text}")'''
 
     if debug:
         print(f"OCR Results: {results}")
@@ -207,6 +197,7 @@ def read_license_plate(image_path, thresholding, enhance, debug):
 
 
 def run(
+        read_license=True, # detect license number on frames
         weights=ROOT / 'yolov9-s4/weights/best.pt',  # model path or triton URL
         source=ROOT / './video4.mp4',  # file/dir/URL/glob/screen/0(webcam)
         data=ROOT / 'data/coco.yaml',  # dataset.yaml path
@@ -218,7 +209,7 @@ def run(
         view_img=False,  # show results
         save_txt=False,  # save results to *.txt
         save_conf=False,  # save confidences in --save-txt labels
-        save_crop=True,  # save cropped prediction boxes
+        save_crop=False,  # save cropped prediction boxes
         nosave=True,  # do not save images/videos
         classes=None,  # filter by class: --class 0, or --class 0 2 3
         agnostic_nms=False,  # class-agnostic NMS
@@ -328,9 +319,11 @@ def run(
                     if save_crop:
                         iplk += 1
                         crop_img = save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}{iplk}.jpgess', BGR=True)
+                    if read_license:
                         # Przetwarzanie wyciętego obrazu tablicy rejestracyjnej
-                        read_license_plate(str(save_dir / 'crops' / names[c] / f'{p.stem}{iplk}.jpg'), thresholding='none', enhance='sharpen', debug=False)
-
+                        #read_license_plate(str(save_dir / 'crops' / names[c] / f'{p.stem}{iplk}.jpg'), thresholding='none', enhance='sharpen', debug=False)
+                        crop_img = save_one_box(xyxy, imc, BGR=True, save=False)
+                        read_license_plate(crop_img, thresholding='none', enhance='sharpen', debug=False)
 
             # Stream results
             im0 = annotator.result()
