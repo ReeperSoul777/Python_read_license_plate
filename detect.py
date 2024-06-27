@@ -10,11 +10,11 @@ import csv
 
 
 FILE = Path(__file__).resolve()
-ROOT = FILE.parents[0]  # YOLO root directory
+ROOT = FILE.parents[1]  # YOLO root directory
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-sys.path.append(str(Path(__file__).resolve().parent / 'yolov9'))
+sys.path.append(str(Path(__file__).resolve().parent / '../yolov9'))
 
 from models.common import DetectMultiBackend
 from utils.dataloaders import IMG_FORMATS, VID_FORMATS, LoadImages, LoadScreenshots, LoadStreams
@@ -241,8 +241,8 @@ def save_rejections_to_csv(frame_number, rejected_text, reason):
 
 def run(
         read_license=True, # detect license number on frames
-        weights=ROOT / 'yolov9-s4/weights/best.pt',  # model path or triton URL
-        source=ROOT / './video4.mp4',  # file/dir/URL/glob/screen/0(webcam)
+        weights='yolov9-s4/weights/best.pt',  # model path or triton URL
+        source='./video4.mp4',  # file/dir/URL/glob/screen/0(webcam)
         data=ROOT / 'data/coco.yaml',  # dataset.yaml path
         imgsz=(640, 640),  # inference size (height, width)
         conf_thres=0.25,  # confidence threshold
