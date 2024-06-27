@@ -175,7 +175,7 @@ def read_license_plate(image, thresholding, enhance, debug, save_results, save_r
     results = reader.readtext(
         gray,
         allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-        text_threshold=0.9,
+        text_threshold=0.7,
         adjust_contrast=0.7, #współczynnik regulacji kontrastu
         contrast_ths=0.5, #próg kontrastu używany do przetwarzania obrazu
         link_threshold=0.15, #próg łączenia wiersza
@@ -248,7 +248,7 @@ def run(
         conf_thres=0.25,  # confidence threshold
         iou_thres=0.45,  # NMS IOU threshold
         max_det=1000,  # maximum detections per image
-        device='cpu',  # cuda device, i.e. 0 or 0,1,2,3 or cpu
+        device='',  # cuda device, i.e. 0 or 0,1,2,3 or cpu
         view_img=False,  # show results
         save_txt=False,  # save results to *.txt
         save_conf=False,  # save confidences in --save-txt labels
